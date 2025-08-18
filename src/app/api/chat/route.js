@@ -1,16 +1,12 @@
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { groq } from '@ai-sdk/groq';
 import { streamText } from 'ai';
 
-const openrouter = createOpenRouter({
-  apiKey: process.env.OPENROUTER_API_KEY,
-});
-
-// Define the AI models we want to use
+// Define the AI models we want to use (Groq models)
 const MODELS = [
-  { id: 'openai/gpt-oss-20b:free', name: 'GPT OSS 20B' },
-  { id: 'qwen/qwen3-coder:free', name: 'Qwen3 Coder' },
-  { id: 'moonshotai/kimi-k2:free', name: 'Kimi K2' },
-  { id: 'google/gemma-3n-e2b-it:free', name: 'Gemma 3N E2B' },
+  { id: 'openai/gpt-oss-20b', name: 'GPT OSS 20B' },
+  { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B' },
+  { id: 'moonshotai/kimi-k2-instruct', name: 'Kimi K2' },
+  { id: 'gemma2-9b-it', name: 'Gemma 2 9B' },
 ];
 
 export async function POST(req) {
@@ -24,12 +20,19 @@ export async function POST(req) {
       });
     }
 
+    if (!process.env.GROQ_API_KEY) {
+      return new Response(JSON.stringify({ error: 'GROQ_API_KEY is not configured' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     // Create promises for all models to respond in parallel
     const modelPromises = MODELS.map(async (model) => {
       try {
         const result = await streamText({
-          model: openrouter(model.id),
-          prompt: message,
+          model: groq(model.id),
+          messages: [{ role: 'user', content: message }],
           maxTokens: 1000,
         });
 

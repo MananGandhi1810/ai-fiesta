@@ -23,6 +23,7 @@ body {
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -36,6 +37,10 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #9ca3af;
+}
+
+::-webkit-scrollbar-corner {
+  background: #374151;
 }
 
 /* Prevent text selection on UI elements */

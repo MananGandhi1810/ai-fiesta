@@ -4,35 +4,35 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
-import ModelPanel from './ModelPanel';
-import { Send, Image, Upload, Mic } from 'lucide-react';
+import ModelPanel from './ModelPanel.js';
+import { Send } from 'lucide-react';
 
 const MODELS = [
   { 
-    id: 'openai/gpt-oss-20b:free', 
-    name: 'ChatGPT 5', 
+    id: 'openai/gpt-oss-20b', 
+    name: 'GPT OSS 20B', 
     icon: '🧠',
     color: 'from-purple-500 to-pink-500',
     bgColor: 'bg-card'
   },
   { 
-    id: 'qwen/qwen3-coder:free', 
-    name: 'Gemini 2.5 Pro', 
-    icon: '💎',
+    id: 'llama-3.1-8b-instant', 
+    name: 'Llama 3.1 8B', 
+    icon: '⚡',
     color: 'from-blue-500 to-cyan-500',
     bgColor: 'bg-card'
   },
   { 
-    id: 'moonshotai/kimi-k2:free', 
-    name: 'DeepSeek', 
+    id: 'moonshotai/kimi-k2-instruct', 
+    name: 'Kimi K2', 
     icon: '🔮',
     color: 'from-indigo-500 to-purple-500',
     bgColor: 'bg-card'
   },
   { 
-    id: 'google/gemma-3n-e2b-it:free', 
-    name: 'Perplexity Sonar Pro', 
-    icon: '🌟',
+    id: 'gemma2-9b-it', 
+    name: 'Gemma 2 9B', 
+    icon: '💎',
     color: 'from-orange-500 to-red-500',
     bgColor: 'bg-card'
   },
@@ -113,6 +113,23 @@ export default function MultiPanelChat() {
                   }
                 }));
               } else if (data.type === 'complete') {
+                // Update chat history with the final response
+                setChatHistory(prev => {
+                  const updated = [...prev];
+                  const lastEntry = updated[updated.length - 1];
+                  if (lastEntry) {
+                    lastEntry.responses = {
+                      ...lastEntry.responses,
+                      [data.modelId]: {
+                        text: data.fullText,
+                        error: null,
+                      }
+                    };
+                  }
+                  return updated;
+                });
+                
+                // Mark response as complete in current responses
                 setResponses(prev => ({
                   ...prev,
                   [data.modelId]: {
@@ -122,6 +139,22 @@ export default function MultiPanelChat() {
                   }
                 }));
               } else if (data.type === 'error') {
+                // Update chat history with the error
+                setChatHistory(prev => {
+                  const updated = [...prev];
+                  const lastEntry = updated[updated.length - 1];
+                  if (lastEntry) {
+                    lastEntry.responses = {
+                      ...lastEntry.responses,
+                      [data.modelId]: {
+                        text: '',
+                        error: data.error,
+                      }
+                    };
+                  }
+                  return updated;
+                });
+                
                 setResponses(prev => ({
                   ...prev,
                   [data.modelId]: {
@@ -130,6 +163,9 @@ export default function MultiPanelChat() {
                     isComplete: true,
                   }
                 }));
+              } else if (data.type === 'end') {
+                // Clear current responses when all models are done
+                setResponses({});
               }
             } catch (error) {
               console.error('Error parsing SSE data:', error);
@@ -159,67 +195,43 @@ export default function MultiPanelChat() {
   }, [message]);
 
   return (
-    <div className="flex-1 flex flex-col h-full">
-      {/* Model Panels Grid */}
-      <div className="flex-1 grid grid-cols-2 gap-px bg-border overflow-hidden">
-        {MODELS.map((model) => (
-          <ModelPanel
-            key={model.id}
-            model={model}
-            response={responses[model.id]}
-            chatHistory={chatHistory}
-            isLoading={isLoading}
-          />
-        ))}
+    <div className="flex-1 flex flex-col h-full overflow-hidden">
+      {/* Model Panels Horizontal Scroll */}
+      <div className="flex-1 overflow-hidden bg-border">
+        <div className="h-full overflow-x-auto overflow-y-hidden">
+          <div className="flex h-full gap-px" style={{ minWidth: `${MODELS.length * 384}px` }}>
+            {MODELS.map((model) => (
+              <div key={model.id} className="flex-shrink-0 w-96 h-full">
+                <ModelPanel
+                  model={model}
+                  response={responses[model.id]}
+                  chatHistory={chatHistory}
+                  isLoading={isLoading}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Input Area */}
       <div className="bg-background border-t border-border p-4">
         <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
           <Card className="p-4">
-            <div className="relative">
+            <div className="flex flex-row gap-2">
               <Textarea
                 ref={textareaRef}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Ask me anything..."
-                className="min-h-[60px] pr-32 resize-none"
+                className="min-h-[60px] resize-none"
                 disabled={isLoading}
+                rows={1}
               />
               
               {/* Input Actions */}
-              <div className="absolute right-3 bottom-3 flex items-center gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="p-2 h-8 w-8"
-                  title="Generate Image"
-                >
-                  <Image className="w-4 h-4" />
-                </Button>
-                
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="p-2 h-8 w-8"
-                  title="Upload Image"
-                >
-                  <Upload className="w-4 h-4" />
-                </Button>
-                
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="p-2 h-8 w-8"
-                  title="Voice Input"
-                >
-                  <Mic className="w-4 h-4" />
-                </Button>
-                
+              <div className="right-3 bottom-3 flex items-center gap-2">              
                 <Button
                   type="submit"
                   size="sm"
