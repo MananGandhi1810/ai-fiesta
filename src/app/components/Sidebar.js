@@ -37,13 +37,15 @@ export default function AppSidebar({ onSelectChat, activeChatId }) {
 
     const fetchChats = async () => {
         try {
-            if (firstFetchRef.current) setLoading(true); // only show loading placeholder first time
+            if (firstFetchRef.current) setLoading(true);
             const res = await fetch('/api/chats');
             if (res.ok) {
                 const data = await res.json();
-                setChats(data.chats || []);
-                if (!activeChatId && data.chats && data.chats.length > 0) {
-                    onSelectChat && onSelectChat(data.chats[0].id);
+                // Ensure chats remain sorted by createdAt desc if backend changes
+                const sorted = (data.chats || []).slice().sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
+                setChats(sorted);
+                if (!activeChatId && sorted.length > 0) {
+                    onSelectChat && onSelectChat(sorted[0].id);
                 }
             }
         } finally {
@@ -59,10 +61,13 @@ export default function AppSidebar({ onSelectChat, activeChatId }) {
     const createNewChat = async () => {
         const res = await fetch('/api/chats', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: 'New Chat' }) });
         if (res.ok) {
-            const { id } = await res.json();
-            onSelectChat && onSelectChat(id);
-            setChats(prev => [{ id, title: 'New Chat' }, ...prev]);
-            fetchChats();
+            const { chat } = await res.json();
+            if (chat) {
+                onSelectChat && onSelectChat(chat.id);
+                setChats(prev => [chat, ...prev].sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt)));
+            } else {
+                fetchChats();
+            }
         }
     };
 
@@ -70,8 +75,6 @@ export default function AppSidebar({ onSelectChat, activeChatId }) {
         if (!title.trim()) return cancelEdit();
         await fetch(`/api/chats/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: title.trim() }) });
         setChats(prev => prev.map(c => c.id === id ? { ...c, title: title.trim() } : c));
-        setEditingChatId(null);
-        setEditTitle("");
     };
 
     const deleteChat = async (id) => {
@@ -81,19 +84,22 @@ export default function AppSidebar({ onSelectChat, activeChatId }) {
         if (res.ok) {
             const data = await res.json();
             const list = data.chats || [];
-            setChats(list);
-            if (list.length === 0) {
+            const sorted = list.slice().sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
+            setChats(sorted);
+            if (sorted.length === 0) {
                 // Auto-create a new chat and select it
                 const createRes = await fetch('/api/chats', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: 'New Chat' }) });
                 if (createRes.ok) {
-                    const { id: newId } = await createRes.json();
-                    setChats([{ id: newId, title: 'New Chat' }]);
-                    onSelectChat && onSelectChat(newId);
+                    const { chat: newChat } = await createRes.json();
+                    if (newChat) {
+                        setChats([newChat]);
+                        onSelectChat && onSelectChat(newChat.id);
+                    }
                 }
             } else {
                 // If deleted active chat, select first remaining
                 if (activeChatId === id) {
-                    onSelectChat && onSelectChat(list[0].id);
+                    onSelectChat && onSelectChat(sorted[0].id);
                 }
             }
         } else {

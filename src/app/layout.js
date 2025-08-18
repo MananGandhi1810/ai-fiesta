@@ -20,7 +20,7 @@ export const metadata = {
 };
 
 export default async function RootLayout({ children }) {
-  const session = await getServerSession();
+const session = await getServerSession();
   return (
       <html lang="en" className="dark">
           <body

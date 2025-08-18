@@ -171,7 +171,7 @@ export default function MultiPanelChat({ initialModels = [], activeChatId, onEns
           <div className="h-full overflow-x-auto overflow-y-hidden">
             <div className="flex h-full gap-px" style={{ minWidth: `${models.length * 384}px` }}>
               {models.map((model) => (
-                <div key={model.id} className="flex-shrink-0 w-96 h-full">
+                <div key={model.id} className="flex-shrink-0 w-[500px] h-full">
                   <ModelPanel
                     model={model}
                     response={responses[model.id]}
