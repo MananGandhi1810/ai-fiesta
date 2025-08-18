@@ -1,10 +1,27 @@
 import { groq } from '@ai-sdk/groq';
 import { streamText } from 'ai';
 import { MODELS } from '../models/route.js';
+import { auth } from '@/lib/auth';
 
 export async function POST(req) {
   try {
+    // Auth check: ensure user session exists
+    let session;
+    try {
+      session = await auth.api.getSession({ headers: req.headers });
+    } catch (_) {
+      session = null;
+    }
+    if (!session || !session.session) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     const { chatHistory, currentMessage, models } = await req.json();
+
+
 
     if (!currentMessage || !models || !Array.isArray(models)) {
       return new Response(JSON.stringify({ error: 'currentMessage and models array are required' }), {

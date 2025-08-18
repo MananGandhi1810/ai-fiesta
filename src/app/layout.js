@@ -1,5 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { SessionProvider } from '@/components/auth/SessionProvider';
+import { getServerSession } from '@/lib/auth';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,13 +18,16 @@ export const metadata = {
   description: "Chat with multiple AI models simultaneously and compare their responses",
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  const session = await getServerSession();
   return (
     <html lang="en" className="dark">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased dark`}
       >
-        {children}
+        <SessionProvider initialSession={session}>
+          {children}
+        </SessionProvider>
       </body>
     </html>
   );
