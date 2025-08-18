@@ -2,6 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SessionProvider } from '@/components/auth/SessionProvider';
 import { getServerSession } from '@/lib/auth';
+import { Analytics } from "@vercel/analytics/next"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -21,14 +22,15 @@ export const metadata = {
 export default async function RootLayout({ children }) {
   const session = await getServerSession();
   return (
-    <html lang="en" className="dark">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased dark`}
-      >
-        <SessionProvider initialSession={session}>
-          {children}
-        </SessionProvider>
-      </body>
-    </html>
+      <html lang="en" className="dark">
+          <body
+              className={`${geistSans.variable} ${geistMono.variable} antialiased dark`}
+          >
+              <SessionProvider initialSession={session}>
+                  {children}
+              </SessionProvider>
+              <Analytics />
+          </body>
+      </html>
   );
 }
