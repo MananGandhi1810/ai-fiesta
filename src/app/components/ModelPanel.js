@@ -7,9 +7,32 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Maximize2, X, Loader2 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 export default function ModelPanel({ model, response, chatHistory, isLoading }) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const scrollAreaRef = useRef(null);
+  const expandedScrollRef = useRef(null);
+
+  // Auto-scroll to bottom when response updates or chat history changes
+  useEffect(() => {
+    const scrollToBottom = (ref) => {
+      if (ref.current) {
+        const viewport = ref.current.querySelector('[data-radix-scroll-area-viewport]');
+        if (viewport) {
+          viewport.scrollTop = viewport.scrollHeight;
+        }
+      }
+    };
+
+    // Scroll main area
+    scrollToBottom(scrollAreaRef);
+    
+    // Scroll expanded area if it's open
+    if (isExpanded) {
+      scrollToBottom(expandedScrollRef);
+    }
+  }, [response, chatHistory, isLoading, isExpanded]);
 
 
   const getStatusIndicator = () => {
@@ -68,7 +91,7 @@ export default function ModelPanel({ model, response, chatHistory, isLoading }) 
 
           {/* Messages Area */}
           <CardContent className="flex-1 p-0 overflow-hidden">
-              <ScrollArea className="h-full p-4">
+              <ScrollArea ref={scrollAreaRef} className="h-full p-4">
                   <div className="space-y-4">
                       {/* Chat History */}
                       {chatHistory.map((chat, index) => (
@@ -98,12 +121,14 @@ export default function ModelPanel({ model, response, chatHistory, isLoading }) 
                                                       }
                                                   </span>
                                               ) : (
-                                                  <div className="whitespace-pre-wrap">
-                                                      {
-                                                          chat.responses[
-                                                              model.id
-                                                          ].text
-                                                      }
+                                                  <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none">
+                                                      <ReactMarkdown>
+                                                          {
+                                                              chat.responses[
+                                                                  model.id
+                                                              ].text
+                                                          }
+                                                      </ReactMarkdown>
                                                   </div>
                                               )}
                                           </CardContent>
@@ -125,8 +150,10 @@ export default function ModelPanel({ model, response, chatHistory, isLoading }) 
                                                   Error: {response.error}
                                               </span>
                                           ) : response?.text ? (
-                                              <div className="whitespace-pre-wrap">
-                                                  {response.text}
+                                              <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none">
+                                                  <ReactMarkdown>
+                                                      {response.text}
+                                                  </ReactMarkdown>
                                                   <span className="inline-block w-2 h-4 bg-foreground ml-1 animate-pulse"></span>
                                               </div>
                                           ) : (
@@ -178,13 +205,13 @@ export default function ModelPanel({ model, response, chatHistory, isLoading }) 
                   </CardHeader>
 
                   {/* Expanded Content */}
-                  <ScrollArea className="flex-1">
+                  <ScrollArea ref={expandedScrollRef} className="flex-1">
                       <div className="p-6">
                           {response?.text ? (
                               <div className="prose prose-neutral dark:prose-invert max-w-none">
-                                  <div className="whitespace-pre-wrap text-foreground leading-relaxed">
+                                  <ReactMarkdown>
                                       {response.text}
-                                  </div>
+                                  </ReactMarkdown>
                               </div>
                           ) : (
                               <div className="text-muted-foreground text-center py-12">

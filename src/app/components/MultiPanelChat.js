@@ -63,6 +63,36 @@ export default function MultiPanelChat() {
 
     setChatHistory(prev => [...prev, newChatEntry]);
 
+    // Build conversation context for each model separately
+    const buildMessagesForModel = (modelId) => {
+      const messages = [];
+      
+      // Add previous conversation history with this specific model
+      chatHistory.forEach(chat => {
+        // Add user message
+        messages.push({
+          role: 'user',
+          content: chat.userMessage
+        });
+        
+        // Add this model's specific response if it exists
+        if (chat.responses && chat.responses[modelId] && chat.responses[modelId].text && !chat.responses[modelId].error) {
+          messages.push({
+            role: 'assistant',
+            content: chat.responses[modelId].text.trim()
+          });
+        }
+      });
+      
+      // Add current user message
+      messages.push({
+        role: 'user',
+        content: currentMessage
+      });
+      
+      return messages;
+    };
+
     // Initialize responses for all models
     const initialResponses = {};
     MODELS.forEach(model => {
@@ -76,13 +106,20 @@ export default function MultiPanelChat() {
     setResponses(initialResponses);
 
     try {
-      // Use the streaming API
+      // Use the streaming API with model-specific context
       const response = await fetch('/api/chat-stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message: currentMessage }),
+        body: JSON.stringify({ 
+          chatHistory,
+          currentMessage,
+          models: MODELS.map(model => ({
+            id: model.id,
+            name: model.name
+          }))
+        }),
       });
 
       if (!response.ok) {

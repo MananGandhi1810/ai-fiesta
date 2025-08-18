@@ -1,7 +1,6 @@
 import { groq } from '@ai-sdk/groq';
 import { streamText } from 'ai';
 
-// Define the AI models we want to use (Groq models)
 const MODELS = [
   { id: 'openai/gpt-oss-20b', name: 'GPT OSS 20B' },
   { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B' },
@@ -11,10 +10,10 @@ const MODELS = [
 
 export async function POST(req) {
   try {
-    const { message } = await req.json();
+    const { chatHistory, currentMessage, models } = await req.json();
 
-    if (!message) {
-      return new Response(JSON.stringify({ error: 'Message is required' }), {
+    if (!currentMessage || !models || !Array.isArray(models)) {
+      return new Response(JSON.stringify({ error: 'currentMessage and models array are required' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -27,19 +26,46 @@ export async function POST(req) {
       });
     }
 
-    // Create a readable stream for server-sent events
+    const buildMessagesForModel = (modelId) => {
+      const messages = [];
+      
+      if (chatHistory && Array.isArray(chatHistory)) {
+        chatHistory.forEach(chat => {
+          messages.push({
+            role: 'user',
+            content: chat.userMessage
+          });
+          
+          if (chat.responses && chat.responses[modelId] && chat.responses[modelId].text && !chat.responses[modelId].error) {
+            messages.push({
+              role: 'assistant',
+              content: chat.responses[modelId].text.trim()
+            });
+          }
+        });
+      }
+      
+      messages.push({
+        role: 'user',
+        content: currentMessage
+      });
+      
+      return messages;
+    };
+
     const stream = new ReadableStream({
       async start(controller) {
-        // Send initial message to indicate streaming has started
         controller.enqueue(`data: ${JSON.stringify({ type: 'start', models: MODELS })}\n\n`);
 
-        // Create promises for all models
         const modelPromises = MODELS.map(async (model) => {
           try {
+            const modelMessages = buildMessagesForModel(model.id);
+            
             const result = await streamText({
               model: groq(model.id),
-              messages: [{ role: 'user', content: message }],
+              messages: modelMessages,
               maxTokens: 1000,
+              temperature: 0.7,
             });
 
             // Stream the response
