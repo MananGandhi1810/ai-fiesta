@@ -30,6 +30,10 @@ export default async function RootLayout({ children }) {
                   {children}
               </SessionProvider>
               <Analytics />
+              {/* Open source repo call-to-action */}
+              <div className="fixed bottom-2 right-2 max-w-xs text-[10px] sm:text-xs text-muted-foreground/80 hover:text-muted-foreground transition-colors bg-background/70 backdrop-blur px-2 py-1 rounded border shadow-sm">
+                <a href="https://github.com/MananGandhi1810/ai-fiesta" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 font-medium">AI Fiesta</a> is open source. Star the repo if you like it ⭐
+              </div>
           </body>
       </html>
   );
