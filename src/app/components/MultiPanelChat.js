@@ -5,49 +5,44 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import ModelPanel from './ModelPanel.js';
-import { Send } from 'lucide-react';
+import { Send, Loader2 } from 'lucide-react';
+import { getCachedModels } from '@/lib/models-api';
 
-const MODELS = [
-  { 
-    id: 'openai/gpt-oss-20b', 
-    name: 'GPT OSS 20B', 
-    icon: '🧠',
-    color: 'from-purple-500 to-pink-500',
-    bgColor: 'bg-card'
-  },
-  { 
-    id: 'llama-3.1-8b-instant', 
-    name: 'Llama 3.1 8B', 
-    icon: '⚡',
-    color: 'from-blue-500 to-cyan-500',
-    bgColor: 'bg-card'
-  },
-  { 
-    id: 'moonshotai/kimi-k2-instruct', 
-    name: 'Kimi K2', 
-    icon: '🔮',
-    color: 'from-indigo-500 to-purple-500',
-    bgColor: 'bg-card'
-  },
-  { 
-    id: 'gemma2-9b-it', 
-    name: 'Gemma 2 9B', 
-    icon: '💎',
-    color: 'from-orange-500 to-red-500',
-    bgColor: 'bg-card'
-  },
-];
-
-export default function MultiPanelChat() {
+export default function MultiPanelChat({ initialModels = [] }) {
   const [message, setMessage] = useState('');
   const [responses, setResponses] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
+  const [models, setModels] = useState(initialModels);
+  const [modelsLoading, setModelsLoading] = useState(!initialModels.length);
   const textareaRef = useRef(null);
+
+  // Fetch models on component mount only if not provided via SSR
+  useEffect(() => {
+    const loadModels = async () => {
+      // If we already have models from SSR, don't fetch again
+      if (initialModels.length > 0) {
+        setModelsLoading(false);
+        return;
+      }
+
+      try {
+        setModelsLoading(true);
+        const fetchedModels = await getCachedModels();
+        setModels(fetchedModels);
+      } catch (error) {
+        console.error('Failed to load models:', error);
+      } finally {
+        setModelsLoading(false);
+      }
+    };
+
+    loadModels();
+  }, [initialModels]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!message.trim() || isLoading) return;
+    if (!message.trim() || isLoading || models.length === 0) return;
 
     const currentMessage = message.trim();
     setMessage('');
@@ -63,39 +58,9 @@ export default function MultiPanelChat() {
 
     setChatHistory(prev => [...prev, newChatEntry]);
 
-    // Build conversation context for each model separately
-    const buildMessagesForModel = (modelId) => {
-      const messages = [];
-      
-      // Add previous conversation history with this specific model
-      chatHistory.forEach(chat => {
-        // Add user message
-        messages.push({
-          role: 'user',
-          content: chat.userMessage
-        });
-        
-        // Add this model's specific response if it exists
-        if (chat.responses && chat.responses[modelId] && chat.responses[modelId].text && !chat.responses[modelId].error) {
-          messages.push({
-            role: 'assistant',
-            content: chat.responses[modelId].text.trim()
-          });
-        }
-      });
-      
-      // Add current user message
-      messages.push({
-        role: 'user',
-        content: currentMessage
-      });
-      
-      return messages;
-    };
-
     // Initialize responses for all models
     const initialResponses = {};
-    MODELS.forEach(model => {
+    models.forEach(model => {
       initialResponses[model.id] = {
         modelName: model.name,
         text: '',
@@ -115,7 +80,7 @@ export default function MultiPanelChat() {
         body: JSON.stringify({ 
           chatHistory,
           currentMessage,
-          models: MODELS.map(model => ({
+          models: models.map(model => ({
             id: model.id,
             name: model.name
           }))
@@ -232,23 +197,39 @@ export default function MultiPanelChat() {
   }, [message]);
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden">
+    <div className="flex-1 flex flex-col h-full">
       {/* Model Panels Horizontal Scroll */}
       <div className="flex-1 overflow-hidden bg-border">
-        <div className="h-full overflow-x-auto overflow-y-hidden">
-          <div className="flex h-full gap-px" style={{ minWidth: `${MODELS.length * 384}px` }}>
-            {MODELS.map((model) => (
-              <div key={model.id} className="flex-shrink-0 w-96 h-full">
-                <ModelPanel
-                  model={model}
-                  response={responses[model.id]}
-                  chatHistory={chatHistory}
-                  isLoading={isLoading}
-                />
-              </div>
-            ))}
+        {modelsLoading ? (
+          <div className="h-full flex items-center justify-center">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="w-6 h-6 animate-spin" />
+              Loading models...
+            </div>
           </div>
-        </div>
+        ) : models.length === 0 ? (
+          <div className="h-full flex items-center justify-center">
+            <div className="text-center text-muted-foreground">
+              <p className="text-lg font-medium">No models available</p>
+              <p className="text-sm">Please try refreshing the page</p>
+            </div>
+          </div>
+        ) : (
+          <div className="h-full overflow-x-auto overflow-y-hidden">
+            <div className="flex h-full gap-px" style={{ minWidth: `${models.length * 384}px` }}>
+              {models.map((model) => (
+                <div key={model.id} className="flex-shrink-0 w-96 h-full">
+                  <ModelPanel
+                    model={model}
+                    response={responses[model.id]}
+                    chatHistory={chatHistory}
+                    isLoading={isLoading}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Input Area */}

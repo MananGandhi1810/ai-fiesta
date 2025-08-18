@@ -1,12 +1,6 @@
 import { groq } from '@ai-sdk/groq';
 import { streamText } from 'ai';
-
-const MODELS = [
-  { id: 'openai/gpt-oss-20b', name: 'GPT OSS 20B' },
-  { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B' },
-  { id: 'moonshotai/kimi-k2-instruct', name: 'Kimi K2' },
-  { id: 'gemma2-9b-it', name: 'Gemma 2 9B' },
-];
+import { MODELS } from '../models/route.js';
 
 export async function POST(req) {
   try {

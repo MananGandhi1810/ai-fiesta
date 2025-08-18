@@ -59,7 +59,7 @@ export default function ModelPanel({ model, response, chatHistory, isLoading }) 
 
   return (
       <Card
-          className={`${model.bgColor} h-full relative border-0 rounded-none overflow-hidden`}
+          className={`${model.bgColor} h-full relative border-0 rounded-none p-0`}
       >
           {/* Header */}
           <CardHeader className="flex flex-row items-center justify-between p-4 border-b border-border">
