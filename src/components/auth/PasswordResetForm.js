@@ -52,7 +52,7 @@ export function PasswordResetForm({ onBack, onCodeSent }) {
       <CardContent className="space-y-4">
         <div className="text-center text-sm text-gray-600">
           <Mail className="h-8 w-8 mx-auto mb-2 text-blue-600" />
-          Enter your email address and we'll send you a code to reset your password using OTP.
+          Enter your email address and we&apos;ll send you a code to reset your password using OTP.
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

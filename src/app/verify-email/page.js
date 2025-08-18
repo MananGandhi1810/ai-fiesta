@@ -53,7 +53,7 @@ export default function VerifyEmailPage() {
           <div className="text-center">
             <Mail className="h-16 w-16 mx-auto mb-4 text-blue-600" />
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              We've sent a verification email to:
+              We&apos;ve sent a verification email to:
             </p>
             <p className="font-medium text-lg mb-6">{session.user.email}</p>
             <p className="text-sm text-gray-600 dark:text-gray-400">

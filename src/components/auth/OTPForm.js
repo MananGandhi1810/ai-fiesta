@@ -71,7 +71,7 @@ export function OTPForm({ email, onBack }) {
       <CardContent className="space-y-4">
         <div className="text-center text-sm text-gray-600">
           <Mail className="h-8 w-8 mx-auto mb-2 text-blue-600" />
-          We've sent a 6-digit code to
+          We&apos;ve sent a 6-digit code to
           <div className="font-medium">{email}</div>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
