@@ -1,10 +1,8 @@
 import { MODELS } from '../api/models/route.js';
 import MultiPanelChat from './MultiPanelChat.js';
 
-// Server component that fetches models and passes them to the client component
-export default async function MultiPanelChatWrapper() {
-  // Fetch models on the server side
+// Wrapper component that passes static models to the client component
+export default function MultiPanelChatWrapper({ activeChatId, ensureChat }) {
   const models = MODELS;
-
-  return <MultiPanelChat initialModels={models} />;
+  return <MultiPanelChat initialModels={models} activeChatId={activeChatId} onEnsureChat={ensureChat} />;
 }

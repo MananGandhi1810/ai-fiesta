@@ -8,14 +8,45 @@ import ModelPanel from './ModelPanel.js';
 import { Send, Loader2 } from 'lucide-react';
 import { getCachedModels } from '@/lib/models-api';
 
-export default function MultiPanelChat({ initialModels = [] }) {
+export default function MultiPanelChat({ initialModels = [], activeChatId, onEnsureChat }) {
   const [message, setMessage] = useState('');
   const [responses, setResponses] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const [chatHistory, setChatHistory] = useState([]);
+  const [chatHistory, setChatHistory] = useState([]); // local structure
   const [models, setModels] = useState(initialModels);
   const [modelsLoading, setModelsLoading] = useState(!initialModels.length);
   const textareaRef = useRef(null);
+  const finalResponsesRef = useRef({});
+  const completionCountRef = useRef(0);
+  const modelsCountRef = useRef(0);
+  const currentChatIdRef = useRef(null);
+
+  // Load chat messages when activeChatId changes
+  useEffect(() => {
+    const loadMessages = async () => {
+      if (!activeChatId) { setChatHistory([]); return; }
+      try {
+        const res = await fetch(`/api/chats/${activeChatId}`);
+        if (res.ok) {
+          const data = await res.json();
+          // Transform flat messages into chatHistory shape
+            const grouped = [];
+            data.messages.forEach(m => {
+              if (m.role === 'user') {
+                grouped.push({ id: m.id, userMessage: m.content, responses: {}, timestamp: new Date(m.createdAt) });
+              } else if (m.role === 'assistant') {
+                const last = grouped[grouped.length - 1];
+                if (last) {
+                  last.responses[m.modelId] = { text: m.content, error: null };
+                }
+              }
+            });
+            setChatHistory(grouped);
+        }
+      } catch (e) { console.error(e); }
+    };
+    loadMessages();
+  }, [activeChatId]);
 
   // Fetch models on component mount only if not provided via SSR
   useEffect(() => {
@@ -40,161 +71,83 @@ export default function MultiPanelChat({ initialModels = [] }) {
     loadModels();
   }, [initialModels]);
 
+  const ensureChat = async () => {
+    if (activeChatId) return activeChatId;
+    if (onEnsureChat) {
+      const id = await onEnsureChat();
+      return id;
+    }
+    // fallback: create directly
+    const res = await fetch('/api/chats', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: 'New Chat' }) });
+    if (res.ok) { const { id } = await res.json(); return id; }
+    return null;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!message.trim() || isLoading || models.length === 0) return;
+
+    const chatId = await ensureChat();
+    if (!chatId) return;
+    currentChatIdRef.current = chatId;
 
     const currentMessage = message.trim();
     setMessage('');
     setIsLoading(true);
 
-    // Add user message to chat history
-    const newChatEntry = {
-      id: Date.now(),
-      userMessage: currentMessage,
-      responses: {},
-      timestamp: new Date(),
-    };
+    const newChatEntry = { id: Date.now(), userMessage: currentMessage, responses: {}, timestamp: new Date() };
+    const updatedChatHistory = [...chatHistory, newChatEntry];
+    setChatHistory(updatedChatHistory);
 
-    setChatHistory(prev => [...prev, newChatEntry]);
-
-    // Initialize responses for all models
     const initialResponses = {};
-    models.forEach(model => {
-      initialResponses[model.id] = {
-        modelName: model.name,
-        text: '',
-        isComplete: false,
-        error: null,
-      };
-    });
+    models.forEach(model => { initialResponses[model.id] = { modelName: model.name, text: '', isComplete: false, error: null }; });
     setResponses(initialResponses);
 
+    // Reset refs for this round
+    finalResponsesRef.current = {};
+    completionCountRef.current = 0;
+    modelsCountRef.current = models.length;
+
     try {
-      // Use the streaming API with model-specific context
-      const response = await fetch('/api/chat-stream', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          chatHistory,
-          currentMessage,
-          models: models.map(model => ({
-            id: model.id,
-            name: model.name
-          }))
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to get response');
-      }
-
+      const response = await fetch('/api/chat-stream', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chatHistory: updatedChatHistory, currentMessage, models: models.map(m => ({ id: m.id, name: m.name })) }) });
+      if (!response.ok) throw new Error('Failed to get response');
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
         const chunk = decoder.decode(value);
         const lines = chunk.split('\n');
-
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             try {
               const data = JSON.parse(line.slice(6));
-              
               if (data.type === 'chunk') {
-                setResponses(prev => ({
-                  ...prev,
-                  [data.modelId]: {
-                    ...prev[data.modelId],
-                    text: data.fullText,
-                  }
-                }));
-              } else if (data.type === 'complete') {
-                // Update chat history with the final response
-                setChatHistory(prev => {
-                  const updated = [...prev];
-                  const lastEntry = updated[updated.length - 1];
-                  if (lastEntry) {
-                    lastEntry.responses = {
-                      ...lastEntry.responses,
-                      [data.modelId]: {
-                        text: data.fullText,
-                        error: null,
-                      }
-                    };
-                  }
-                  return updated;
-                });
-                
-                // Mark response as complete in current responses
-                setResponses(prev => ({
-                  ...prev,
-                  [data.modelId]: {
-                    ...prev[data.modelId],
-                    text: data.fullText,
-                    isComplete: true,
-                  }
-                }));
-              } else if (data.type === 'error') {
-                // Update chat history with the error
-                setChatHistory(prev => {
-                  const updated = [...prev];
-                  const lastEntry = updated[updated.length - 1];
-                  if (lastEntry) {
-                    lastEntry.responses = {
-                      ...lastEntry.responses,
-                      [data.modelId]: {
-                        text: '',
-                        error: data.error,
-                      }
-                    };
-                  }
-                  return updated;
-                });
-                
-                setResponses(prev => ({
-                  ...prev,
-                  [data.modelId]: {
-                    ...prev[data.modelId],
-                    error: data.error,
-                    isComplete: true,
-                  }
-                }));
-              } else if (data.type === 'end') {
-                // Clear current responses when all models are done
-                setResponses({});
+                setResponses(prev => ({ ...prev, [data.modelId]: { ...prev[data.modelId], text: data.fullText } }));
+              } else if (data.type === 'complete' || data.type === 'error') {
+                // Update chat history and responses state
+                setChatHistory(prev => { const updated = [...prev]; const lastEntry = updated[updated.length -1]; if (lastEntry) { lastEntry.responses = { ...lastEntry.responses, [data.modelId]: { text: data.type === 'complete' ? data.fullText : '', error: data.type === 'error' ? data.error : null } }; } return updated; });
+                setResponses(prev => ({ ...prev, [data.modelId]: { ...prev[data.modelId], text: data.fullText || prev[data.modelId]?.text || '', error: data.type === 'error' ? data.error : null, isComplete: true } }));
+                // Record final response
+                finalResponsesRef.current[data.modelId] = { modelId: data.modelId, content: data.type === 'complete' ? data.fullText : '', error: data.type === 'error' ? data.error : null };
+                completionCountRef.current += 1;
+                // If all models finished, persist messages
+                if (completionCountRef.current === modelsCountRef.current) {
+                  const assistantResponses = Object.values(finalResponsesRef.current).filter(r => !r.error).map(r => ({ modelId: r.modelId, content: r.content }));
+                  fetch('/api/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chatId: currentChatIdRef.current, userContent: currentMessage, assistantResponses }) });
+                  setResponses({});
+                }
               }
-            } catch (error) {
-              console.error('Error parsing SSE data:', error);
-            }
+              // Ignore 'end' now (handled by completion counts)
+            } catch (err) { console.error('Error parsing SSE data:', err); }
           }
         }
       }
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    } catch (error) { console.error('Error:', error); } finally { setIsLoading(false); }
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit(e);
-    }
-  };
-
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
-    }
-  }, [message]);
+  const handleKeyDown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(e); } };
+  useEffect(() => { if (textareaRef.current) { textareaRef.current.style.height = 'auto'; textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px'; } }, [message]);
 
   return (
     <div className="flex-1 flex flex-col h-full">
