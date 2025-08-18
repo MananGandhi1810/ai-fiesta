@@ -83,7 +83,7 @@ export const auth = betterAuth({
             },
         })
     ],
-    trustedOrigins: [process.env.BETTER_AUTH_URL],
+    trustedOrigins: ["localhost:3000", "aifiesta.manangandhi.tech"],
     session: {
         expiresIn: 60 * 60 * 24 * 7, // 7 days
         updateAge: 60 * 60 * 24, // 24 hours
