@@ -172,7 +172,7 @@ export default function ModelPanel({
                       </Avatar>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                      <p className="text-sm leading-relaxed text-wrap break-words">
                         {chat.userMessage}
                       </p>
                     </div>
@@ -213,9 +213,9 @@ export default function ModelPanel({
                             Error: {modelResp.error}
                           </span>
                         ) : (
-                          <MarkdownBlock>{modelResp.text}</MarkdownBlock>
+                          <MarkdownBlock className="text-wrap">{modelResp.text}</MarkdownBlock>
                         )}
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground text-wrap">
                           <button
                             onClick={() =>
                               handleCopy(modelResp.text, chat.id + "-model")
